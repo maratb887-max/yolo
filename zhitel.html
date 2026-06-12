@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcoSana — Актобе</title>
+<style>
+  /* ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СБРОС ===== */
+  :root {
+    --primary: #1a6e3c;       /* глубокий зеленый */
+    --primary-light: #e8f5ee; /* светлый зеленый фон */
+    --secondary: #3dab6b;     /* мятно-зеленый */
+    --accent: #f0b429;        /* янтарно-желтый акцент */
+    --accent-light: #fef9ec;
+    --bg: #f0f2f0;            /* светло-серый фон */
+    --surface: #ffffff;
+    --text: #1a2e1e;
+    --text-muted: #5a7360;
+    --border: #ccddd4;
+    --danger: #c0392b;
+    --warning: #e67e22;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #d0d8d2;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    padding: 24px 0 40px;
+  }
+
+  /* ===== КОРПУС СМАРТФОНА ===== */
+  .phone {
+    width: 100%;
+    max-width: 410px;
+    min-height: 820px;
+    background: var(--surface);
+    border-radius: 36px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.22), 0 0 0 2px #b0bab4;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ===== СТАТУС-БАР ===== */
+  .status-bar {
+    background: var(--primary);
+    color: #fff;
+    padding: 10px 20px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .status-bar .app-name { font-weight: 700; font-size: 14px; letter-spacing: 0.06em; }
+  .balance-pill {
+    background: var(--accent);
+    color: var(--primary);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ===== ЭКРАНЫ ===== */
+  .screen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 4px;
+  }
+  .screen.active { display: flex; }
+
+  /* ===== УВЕДОМЛЕНИЕ ===== */
+  .toast {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--primary);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 999;
+    letter-spacing: 0.01em;
+    box-shadow: 0 4px 16px rgba(26,110,60,0.28);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.error { background: var(--danger); }
+
+  /* ===== НИЖНЯЯ НАВИГАЦИЯ ===== */
+  .nav {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    flex: 1;
+    padding: 12px 0 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.2s;
+  }
+  .nav-btn .nav-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+  .nav-btn.active { color: var(--secondary); }
+  .nav-btn.active .nav-icon { background: var(--primary-light); }
+
+  /* ===== ЭКРАН: КАРТА ===== */
+  .map-container {
+    position: relative;
+    height: 300px;
+    background: #c8dac0;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .map-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .map-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.25));
+  }
+
+  /* Маркеры баков */
+  .marker {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 3px solid var(--surface);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 10;
+  }
+  .marker:hover, .marker.selected {
+    transform: translate(-50%, -50%) scale(1.35);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+  }
+  .marker.free    { background: #27ae60; border-color: #fff; }
+  .marker.medium  { background: var(--accent); border-color: #fff; }
+  .marker.full    { background: var(--danger); border-color: #fff; }
+
+  /* Метка маркера */
+  .marker-label {
+    position: absolute;
+    transform: translate(-50%, -190%);
+    background: rgba(255,255,255,0.92);
+    color: var(--text);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    letter-spacing: 0.03em;
+  }
+
+  /* Легенда на карте */
+  .map-legend {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.88);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Информационная карточка */
+  .info-section { padding: 14px 16px; }
+  .info-card {
+    background: var(--primary-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .info-card h3 {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .info-card .location-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .info-card .location-address {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .status-badge .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .badge-free    { background: #d5f0e0; color: #1a6e3c; }
+  .badge-free .dot    { background: #27ae60; }
+  .badge-medium  { background: #fef3d0; color: #7d5a00; }
+  .badge-medium .dot  { background: var(--accent); }
+  .badge-full    { background: #fde8e6; color: #922b21; }
+  .badge-full .dot    { background: var(--danger); }
+
+  .fill-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fill-bar { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+  /* Блок конвейера */
+  .conveyor-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .conveyor-block h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .conveyor-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .conveyor-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .conv-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border);
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .conv-btn.plastic {
+    border-color: var(--secondary);
+    color: var(--primary);
+  }
+  .conv-btn.plastic:hover:not(:disabled) {
+    background: var(--primary-light);
+  }
+  .conv-btn.paper {
+    border-color: var(--accent);
+    color: #7d5a00;
+  }
+  .conv-btn.paper:hover:not(:disabled) {
+    background: var(--accent-light);
+  }
+  .conv-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
+
+  /* ===== ЭКРАН: МАРКЕТ ===== */
+  .market-section { padding: 14px 16px; }
+
+  /* Карточка баланса */
+  .balance-card {
+    background: var(--primary);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .balance-card .label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .balance-card .amount {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .balance-card .unit {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    margin-left: 4px;
+  }
+  .eco-badge {
+    background: var(--accent);
+    color: var(--primary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 5px 10px;
+    border-radius: 20px;
+  }
+
+  /* Секция товаров */
+  .section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .product-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+  .product-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  /* Фото-заглушка */
+  .product-img-wrap {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .product-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .product-img-wrap .stub-text {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.04em;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .product-img-wrap.partner-wrap {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+  }
+  .product-img-wrap.partner-wrap .stub-text { color: #7d5a00; }
+
+  .product-info { flex: 1; min-width: 0; }
+  .product-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .product-price {
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: 700;
+  }
+  .product-price span { color: var(--text-muted); font-weight: 500; }
+
+  .exchange-btn {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--secondary);
+    background: transparent;
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .exchange-btn:hover { background: var(--primary-light); }
+
+  /* Партнерская секция */
+  .partner-list { display: flex; flex-direction: column; gap: 8px; }
+  .partner-card {
+    background: var(--surface);
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+  .partner-label-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #7d5a00;
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 2px 5px;
+    letter-spacing: 0.04em;
+    margin-top: 3px;
+    display: inline-block;
+  }
+  .partner-info { flex: 1; min-width: 0; }
+  .partner-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .partner-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ===== ЭКРАН: ПРОФИЛЬ ===== */
+  .profile-section { padding: 14px 16px; }
+
+  .user-card {
+    background: var(--primary);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .avatar {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    border: 2px solid rgba(255,255,255,0.35);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .avatar-inner {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .user-info .user-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .user-info .user-title {
+    font-size: 12px;
+    color: rgba(255,255,255,0.65);
+    margin-top: 2px;
+  }
+
+  .stat-card {
+    background: var(--primary-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .stat-value { font-size: 15px; font-weight: 800; color: var(--primary); }
+
+  .partners-info-card {
+    background: var(--accent-light);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .partners-info-card h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #7d5a00;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .partner-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(240,180,41,0.25);
+  }
+  .partner-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .partner-chip {
+    background: var(--accent);
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 3px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    min-width: 50px;
+    text-align: center;
+  }
+  .partner-row-text { font-size: 13px; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- СТАТУС-БАР -->
+  <div class="status-bar">
+    <span class="app-name">ECOSANA</span>
+    <span class="balance-pill"><span id="header-balance">1450</span> б.</span>
+  </div>
+
+  <!-- ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== ЭКРАН 1: КАРТА ===== -->
+  <div class="screen active" id="screen-map">
+
+    <!-- Карта с маркерами -->
+    <div class="map-container" id="map-container">
+      <!-- Фоновое изображение города -->
+      <img class="map-img" src="image_b06d1c.jpg" alt="Карта Актобе"
+           onerror="this.style.display='none'; document.getElementById('map-fallback').style.display='block'">
+      <!-- Запасной фон если изображение не найдено -->
+      <div id="map-fallback" style="display:none; position:absolute; inset:0; background: linear-gradient(135deg, #b8d4c0 0%, #9ec4a8 40%, #c8dca0 100%);">
+        <div style="position:absolute; bottom:12px; left:12px; font-size:11px; font-weight:700; color:#1a6e3c; letter-spacing:0.05em; background:rgba(255,255,255,0.7); padding:4px 8px; border-radius:4px;">АКТОБЕ — КАРТА ГОРОДА</div>
+      </div>
+      <div class="map-overlay"></div>
+
+      <!-- МАРКЕР 1: пр. Абилкайыр хана, Парк Президента — Свободен -->
+      <div class="marker free" id="m1" style="left:38%; top:42%;"
+           onclick="selectMarker(0)" title="Бак №1"></div>
+      <div class="marker-label" style="left:38%; top:42%; transform: translate(-50%, -380%);">БАК №1</div>
+
+      <!-- МАРКЕР 2: ул. Маресьева, Центральный рынок — Средне -->
+      <div class="marker medium" id="m2" style="left:62%; top:55%;"
+           onclick="selectMarker(1)" title="Бак №2"></div>
+      <div class="marker-label" style="left:62%; top:55%; transform: translate(-50%, -380%);">БАК №2</div>
+
+      <!-- МАРКЕР 3: Автовокзал — Переполнен -->
+      <div class="marker full" id="m3" style="left:75%; top:30%;"
+           onclick="selectMarker(2)" title="Бак №3"></div>
+      <div class="marker-label" style="left:75%; top:30%; transform: translate(-50%, -380%);">БАК №3</div>
+
+      <!-- Легенда -->
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div> Свободен</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f0b429"></div> Средне</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c0392b"></div> Переполнен</div>
+      </div>
+    </div>
+
+    <!-- Информационная карточка -->
+    <div class="info-section">
+      <div class="info-card">
+        <h3>Выбранный бак</h3>
+        <div class="location-name" id="loc-name">Выберите точку на карте</div>
+        <div class="location-address" id="loc-addr">Нажмите на маркер для просмотра деталей</div>
+        <div class="status-row">
+          <div class="status-badge badge-free" id="loc-status">
+            <span class="dot"></span>
+            <span id="loc-status-text">—</span>
+          </div>
+          <div class="fill-bar-wrap">
+            <div class="fill-bar" id="fill-bar" style="width:0%; background: #27ae60;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Блок управления конвейером -->
+      <div class="conveyor-block">
+        <h3>Управление конвейером</h3>
+        <div class="conveyor-hint" id="conveyor-hint">
+          Выберите работающий бак на карте, чтобы активировать сдачу отходов.
+        </div>
+        <div class="conveyor-btns">
+          <button class="conv-btn plastic" id="btn-plastic" disabled onclick="addPoints(150, 'Пластик')">
+            + Пластик<br><small style="font-weight:600; font-size:11px;">(+150 б.)</small>
+          </button>
+          <button class="conv-btn paper" id="btn-paper" disabled onclick="addPoints(100, 'Бумага')">
+            + Бумага<br><small style="font-weight:600; font-size:11px;">(+100 б.)</small>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ЭКРАН 2: МАРКЕТ ПРИЗОВ ===== -->
+  <div class="screen" id="screen-market">
+    <div class="market-section">
+
+      <!-- Карточка текущего баланса -->
+      <div class="balance-card">
+        <div>
+          <div class="label">Ваш эко-баланс</div>
+          <div class="amount" id="market-balance">1450<span class="unit">б.</span></div>
+        </div>
+        <div class="eco-badge">ECO-SHOP</div>
+      </div>
+
+      <!-- Список товаров -->
+      <div class="section-title">Товары за баллы</div>
+      <div class="product-list">
+
+        <!-- Coca-Cola с реальным изображением -->
+        <div class="product-card">
+          <div class="product-img-wrap">
+            <img src="image_b069d6.png" alt="Coca-Cola"
+                 onerror="this.parentElement.innerHTML='<div class=\'stub-text\'>COLA</div>'">
+          </div>
+          <div class="product-info">
+            <div class="product-name">Coca-Cola Classic 1.5л</div>
+            <div class="product-price">500 б. <span>за штуку</span></div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(500, 'Coca-Cola Classic')">Обменять</button>
+        </div>
+
+        <!-- Lays с реальным изображением -->
+        <div class="product-card">
+          <div class="product-img-wrap">
+            <img src="image_b069fd.jpg" alt="Lays"
+                 onerror="this.parentElement.innerHTML='<div class=\'stub-text\'>LAYS</div>'">
+          </div>
+          <div class="product-info">
+            <div class="product-name">Чипсы Lays «Сыр» 70г</div>
+            <div class="product-price">700 б. <span>за пачку</span></div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(700, 'Lays «Сыр»')">Обменять</button>
+        </div>
+
+        <!-- Товары с текстовыми заглушками -->
+        <div class="product-card">
+          <div class="product-img-wrap"><div class="stub-text">TEA</div></div>
+          <div class="product-info">
+            <div class="product-name">Maxi Чай 0.5л</div>
+            <div class="product-price">450 б.</div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(450, 'Maxi Чай')">Обменять</button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img-wrap"><div class="stub-text">CHOCO</div></div>
+          <div class="product-info">
+            <div class="product-name">Snickers Snax</div>
+            <div class="product-price">350 б.</div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(350, 'Snickers Snax')">Обменять</button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img-wrap"><div class="stub-text">TWIX</div></div>
+          <div class="product-info">
+            <div class="product-name">Батончик Twix Standard</div>
+            <div class="product-price">350 б.</div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(350, 'Twix Standard')">Обменять</button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img-wrap"><div class="stub-text">MARS</div></div>
+          <div class="product-info">
+            <div class="product-name">Батончик Mars Classic</div>
+            <div class="product-price">320 б.</div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(320, 'Mars Classic')">Обменять</button>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img-wrap"><div class="stub-text">ORBIT</div></div>
+          <div class="product-info">
+            <div class="product-name">Жевательная резинка Orbit</div>
+            <div class="product-price">200 б.</div>
+          </div>
+          <button class="exchange-btn" onclick="redeem(200, 'Orbit')">Обменять</button>
+        </div>
+      </div>
+
+      <!-- Партнеры Актобе -->
+      <div class="section-title">Партнеры города Актобе</div>
+      <div class="partner-list">
+
+        <div class="partner-card">
+          <div class="product-img-wrap partner-wrap">
+            <div class="stub-text" style="color:#7d5a00;">ANVAR</div>
+          </div>
+          <div class="partner-info">
+            <div class="partner-name">Торговая сеть «Анвар»</div>
+            <div class="partner-desc">Скидка 500 ₸ на покупку</div>
+            <span class="partner-label-badge">ПАРТНЕР</span>
+          </div>
+          <button class="exchange-btn" onclick="redeem(1000, 'Купон «Анвар»')">1000 б.</button>
+        </div>
+
+        <div class="partner-card">
+          <div class="product-img-wrap partner-wrap">
+            <div class="stub-text" style="color:#7d5a00;">DINA</div>
+          </div>
+          <div class="partner-info">
+            <div class="partner-name">Гипермаркет «Дина»</div>
+            <div class="partner-desc">Скидка 500 ₸ на покупку</div>
+            <span class="partner-label-badge">ПАРТНЕР</span>
+          </div>
+          <button class="exchange-btn" onclick="redeem(1000, 'Купон «Дина»')">1000 б.</button>
+        </div>
+
+        <div class="partner-card">
+          <div class="product-img-wrap partner-wrap">
+            <div class="stub-text" style="color:#7d5a00;">CAFE</div>
+          </div>
+          <div class="partner-info">
+            <div class="partner-name">Bodrum Cafe</div>
+            <div class="partner-desc">Бесплатный кофе</div>
+            <span class="partner-label-badge">ПАРТНЕР</span>
+          </div>
+          <button class="exchange-btn" onclick="redeem(1200, 'Кофе Bodrum')">1200 б.</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ЭКРАН 3: ПРОФИЛЬ ===== -->
+  <div class="screen" id="screen-profile">
+    <div class="profile-section">
+
+      <!-- Карточка пользователя -->
+      <div class="user-card">
+        <div class="avatar">
+          <div class="avatar-inner"></div>
+        </div>
+        <div class="user-info">
+          <div class="user-name">Эко-Активист</div>
+          <div class="user-title">Актобе, Казахстан · Участник EcoSana</div>
+        </div>
+      </div>
+
+      <!-- Статистика -->
+      <div class="stat-card">
+        <div class="stat-row">
+          <span class="stat-label">Текущий баланс</span>
+          <span class="stat-value" id="profile-balance">1450 б.</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Уровень</span>
+          <span class="stat-value" style="color:var(--accent);">ЭКО-АКТИВИСТ</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Город</span>
+          <span class="stat-value" style="font-size:13px;">Актобе</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Статус программы</span>
+          <span class="stat-value" style="font-size:12px; color:var(--secondary);">АКТИВЕН</span>
+        </div>
+      </div>
+
+      <!-- Партнерская программа -->
+      <div class="partners-info-card">
+        <h3>Официальные партнеры</h3>
+        <div class="partner-row">
+          <div class="partner-chip">ANVAR</div>
+          <div class="partner-row-text">Торговая сеть «Анвар» — скидки от 500 ₸</div>
+        </div>
+        <div class="partner-row">
+          <div class="partner-chip">DINA</div>
+          <div class="partner-row-text">Гипермаркет «Дина» — скидки от 500 ₸</div>
+        </div>
+        <div class="partner-row">
+          <div class="partner-chip">CAFE</div>
+          <div class="partner-row-text">Bodrum Cafe — бесплатный кофе</div>
+        </div>
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(240,180,41,0.3); font-size:12px; color:var(--text-muted); line-height:1.5;">
+          Обменивайте эко-баллы в любом партнерском магазине, предъявив QR-код из приложения кассиру.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- НИЖНЯЯ НАВИГАЦИЯ -->
+  <nav class="nav">
+    <button class="nav-btn active" id="nav-map" onclick="switchTab('map')">
+      <div class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+          <line x1="9" y1="3" x2="9" y2="18"/>
+          <line x1="15" y1="6" x2="15" y2="21"/>
+        </svg>
+      </div>
+      КАРТА
+    </button>
+    <button class="nav-btn" id="nav-market" onclick="switchTab('market')">
+      <div class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+      </div>
+      МАРКЕТ
+    </button>
+    <button class="nav-btn" id="nav-profile" onclick="switchTab('profile')">
+      <div class="nav-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      ПРОФИЛЬ
+    </button>
+  </nav>
+
+</div>
+
+<script>
+  /* ===========================
+     ДАННЫЕ БАКОВ
+  =========================== */
+  const bins = [
+    {
+      name: 'Бак №1 — Парк Президента',
+      address: 'пр. Абилкайыр хана, р-н Парка Президента',
+      status: 'free',
+      statusText: 'Свободен',
+      fill: 18,
+      fillColor: '#27ae60',
+      badgeClass: 'badge-free',
+      active: true
+    },
+    {
+      name: 'Бак №2 — Центральный рынок',
+      address: 'ул. Маресьева, р-н Центрального рынка',
+      status: 'medium',
+      statusText: 'Заполнен наполовину',
+      fill: 55,
+      fillColor: '#f0b429',
+      badgeClass: 'badge-medium',
+      active: true
+    },
+    {
+      name: 'Бак №3 — Автовокзал',
+      address: 'Район Автовокзала, ул. Маяковского',
+      status: 'full',
+      statusText: 'Переполнен',
+      fill: 100,
+      fillColor: '#c0392b',
+      badgeClass: 'badge-full',
+      active: false
+    }
+  ];
+
+  /* ===========================
+     СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+  =========================== */
+  let balance = 1450;
+  let selectedBin = null;
+
+  /* ===========================
+     ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+     Скрывает все экраны и
+     показывает нужный, обновляет
+     состояние кнопок навигации.
+  =========================== */
+  function switchTab(tab) {
+    // Убираем активный класс со всех экранов и кнопок
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+    // Активируем нужный экран и кнопку
+    document.getElementById('screen-' + tab).classList.add('active');
+    document.getElementById('nav-' + tab).classList.add('active');
+  }
+
+  /* ===========================
+     ВЫБОР МАРКЕРА НА КАРТЕ
+     Обновляет информационную
+     карточку под картой.
+  =========================== */
+  function selectMarker(index) {
+    selectedBin = index;
+    const bin = bins[index];
+
+    // Подсветка выбранного маркера
+    document.querySelectorAll('.marker').forEach((m, i) => {
+      m.classList.toggle('selected', i === index);
+    });
+
+    // Обновление текстовых данных
+    document.getElementById('loc-name').textContent = bin.name;
+    document.getElementById('loc-addr').textContent = bin.address;
+    document.getElementById('loc-status-text').textContent = bin.statusText;
+
+    // Обновление значка статуса
+    const statusEl = document.getElementById('loc-status');
+    statusEl.className = 'status-badge ' + bin.badgeClass;
+    statusEl.innerHTML = `<span class="dot"></span><span id="loc-status-text">${bin.statusText}</span>`;
+
+    // Обновление полосы заполнения
+    const bar = document.getElementById('fill-bar');
+    bar.style.width = bin.fill + '%';
+    bar.style.background = bin.fillColor;
+
+    // Активация/деактивация кнопок конвейера
+    const isActive = bin.active;
+    document.getElementById('btn-plastic').disabled = !isActive;
+    document.getElementById('btn-paper').disabled = !isActive;
+
+    // Обновление подсказки конвейера
+    document.getElementById('conveyor-hint').textContent = isActive
+      ? `Бак готов к приему отходов. Сдайте отходы и получите баллы.`
+      : `Этот бак переполнен и не принимает отходы. Выберите другой.`;
+  }
+
+  /* ===========================
+     ДОБАВЛЕНИЕ БАЛЛОВ
+     Вызывается при нажатии
+     кнопок конвейера.
+  =========================== */
+  function addPoints(amount, type) {
+    if (selectedBin === null || !bins[selectedBin].active) return;
+
+    balance += amount;
+    updateBalanceUI();
+    showToast(`+${amount} баллов за ${type}!`, false);
+  }
+
+  /* ===========================
+     ОБМЕН ТОВАРА НА БАЛЛЫ
+     Проверяет хватает ли баллов,
+     списывает их и уведомляет.
+  =========================== */
+  function redeem(cost, name) {
+    if (balance >= cost) {
+      balance -= cost;
+      updateBalanceUI();
+      showToast(`Получено: ${name}`, false);
+    } else {
+      const diff = cost - balance;
+      showToast(`Не хватает ${diff} б.`, true);
+    }
+  }
+
+  /* ===========================
+     СИНХРОНИЗАЦИЯ БАЛАНСА
+     Обновляет все элементы
+     баланса во всех экранах.
+  =========================== */
+  function updateBalanceUI() {
+    document.getElementById('header-balance').textContent = balance;
+    document.getElementById('market-balance').innerHTML =
+      balance + '<span class="unit">б.</span>';
+    document.getElementById('profile-balance').textContent = balance + ' б.';
+  }
+
+  /* ===========================
+     ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ
+     Показывает toast-сообщение
+     и скрывает его через 2.5 сек.
+  =========================== */
+  let toastTimer = null;
+  function showToast(msg, isError) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast' + (isError ? ' error' : '') + ' show';
+
+    // Сбрасываем предыдущий таймер если он был
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2500);
+  }
+</script>
+</body>
+</html>
