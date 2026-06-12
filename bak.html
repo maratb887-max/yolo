@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSana — Панель Управления Логистикой</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-glass: rgba(30, 30, 30, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            background-color: #0d0e12;
+        }
+
+        /* Контейнер карты */
+        #map {
+            height: 100vh;
+            width: 100vw;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Кастомизация темы карты Leaflet под темный минималистичный стиль */
+        .leaflet-container {
+            background: #0d0e12 !important;
+        }
+        
+        /* Смещение стандартных кнопок зума вправо для чистоты интерфейса */
+        .leaflet-control-zoom {
+            border: none !important;
+            margin-right: 24px !important;
+            margin-top: 24px !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            background: var(--bg-glass) !important;
+            color: var(--text-main) !important;
+            border: 1px solid var(--border-glass) !important;
+            backdrop-filter: blur(16px);
+            transition: all 0.2s ease;
+        }
+        
+        .leaflet-control-zoom-in:hover, .leaflet-control-zoom-out:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
+
+        /* Главный матовый оверлей (Интерфейс поверх карты) */
+        .ui-container {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            bottom: 24px;
+            width: 380px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            pointer-events: none; /* Карта кликабельна сквозь пустые зоны */
+        }
+
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            pointer-events: auto; /* Возвращаем кликабельность элементам интерфейса */
+        }
+
+        /* Шапка проекта */
+        .header-panel h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-panel h1 span {
+            color: var(--accent-green);
+        }
+
+        .header-panel p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Панель статистики / Мониторинга */
+        .stats-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 14px;
+            border-radius: 12px;
+        }
+
+        .metric-card .value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .metric-card .label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Список баков в критическом состоянии (Приоритет TSP алгоритма) */
+        .bin-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
+        .bin-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            transition: background 0.2s;
+            cursor: pointer;
+        }
+
+        .bin-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .bin-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bin-name {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .bin-type {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .bin-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+        .badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--accent-yellow); }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+
+        /* Нижняя кнопка запуска оптимизации маршрута */
+        .action-btn {
+            width: 100%;
+            background: var(--accent-green);
+            color: #0d0e12;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .action-btn:hover {
+            background: #0ea5e9; /* Смена цвета при ховере для хайтек-эффекта */
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* Стилизация круглых кастомных маркеров Leaflet */
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: #fff;
+            font-weight: 700;
+            font-size: 10px;
+            border: 2px solid #0d0e12;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s ease;
+        }
+        
+        .custom-marker:hover {
+            transform: scale(1.2);
+            z-index: 999 !important;
+        }
+
+        /* Стили для всплывающих окон (Popup) на карте в стиле glassmorphism */
+        .leaflet-popup-content-wrapper {
+            background: rgba(20, 20, 20, 0.85) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main) !important;
+            border-radius: 12px !important;
+            padding: 4px;
+        }
+
+        .leaflet-popup-tip {
+            background: rgba(20, 20, 20, 0.85) !important;
+            border: 1px solid var(--border-glass);
+        }
+
+        .popup-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+
+        .popup-row {
+            font-size: 12px;
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .popup-label { color: var(--text-muted); }
+        .popup-value { font-weight: 500; }
+
+        /* Кастомизация скроллбара */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="ui-container">
+        
+        <div class="glass-panel header-panel">
+            <h1>EcoSana <span>•</span> IoT AI</h1>
+            <p>Система интеллектуального мониторинга отходов (Актобе)</p>
+        </div>
+
+        <div class="glass-panel stats-panel">
+            <div>
+                <div class="section-title">Текущие метрики</div>
+                <div class="metrics-grid" style="margin-top: 10px;">
+                    <div class="metric-card">
+                        <div class="value" id="total-bins">50</div>
+                        <div class="label">Всего эко-баков</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value" style="color: var(--accent-red);" id="critical-bins-count">3</div>
+                        <div class="label">Критично (&gt;90%)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">Приоритет вывоза (TSP Очередь)</div>
+                <div class="bin-list" id="priority-list">
+                    </div>
+            </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 0; background: transparent; border: none; box-shadow: none;">
+            <button class="action-btn" onclick="calculateRoute()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                Рассчитать TSP Маршрут
+            </button>
+        </div>
+
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // Инициализация карты с фокусом на центр Актобе
+        const map = L.map('map', {
+            zoomControl: false, // Отключаем дефолтный зум, чтобы перенести его
+            minZoom: 11,
+            maxZoom: 17
+        }).setView([50.2833, 57.1667], 13);
+
+        // Подключаем премиальную темную минималистичную подложку карты (CartoDB Dark Matter)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+
+        // Добавляем кастомный зум-контроллер в правый верхний угол
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        // Имитация базы данных датчиков эко-баков в спальных районах Актобе (11 и 12 мкр, Батыс-2, Жилгородок)
+        const ecoBins = [
+            { id: 1, name: "11 микрорайон, д. 4", type: "Пластик", fill: 94, lat: 50.2845, lng: 57.1912, lastUpdate: "5 мин назад" },
+            { id: 2, name: "ул. М. Маметовой, 44", type: "Бумага", fill: 92, lat: 50.2891, lng: 57.1855, lastUpdate: "2 мин назад" },
+            { id: 3, name: "мкр. Батыс-2, д. 12", type: "Пластик", fill: 91, lat: 50.2612, lng: 57.1489, lastUpdate: "12 мин назад" },
+            { id: 4, name: "пр. Абилкайыр Хана, 62", type: "Пластик", fill: 78, lat: 50.2924, lng: 57.1721, lastUpdate: "10 мин назад" },
+            { id: 5, name: "12 микрорайон, д. 22", type: "Бумага", fill: 65, lat: 50.2789, lng: 57.2023, lastUpdate: "1 ч назад" },
+            { id: 6, name: "пр. Алии Молдагуловой, 34", type: "Пластик", fill: 42, lat: 50.2741, lng: 57.1614, lastUpdate: "34 мин назад" },
+            { id: 7, name: "Жилгородок, ул. Мира", type: "Бумага", fill: 15, lat: 50.3015, lng: 57.1532, lastUpdate: "2 ч назад" }
+        ];
+
+        // Точка перерабатывающего завода (Завод «EcoSana Recycling»)
+        const factoryLocation = { lat: 50.2520, lng: 57.2150, name: "Завод по переработке сырья" };
+
+        // Добавление маркера завода
+        L.circleMarker([factoryLocation.lat, factoryLocation.lng], {
+            radius: 10,
+            fillColor: "#0ea5e9",
+            color: "#fff",
+            weight: 2,
+            fillOpacity: 0.9
+        }).addTo(map).bindPopup(`<div class="popup-title">${factoryLocation.name}</div><div class="popup-row"><span class="popup-label">Статус:</span><span class="popup-value" style="color:var(--accent-green)">Прием активен</span></div>`);
+
+        // Функция определения цвета по проценту наполнения
+        function getColorByFill(fill) {
+            if (fill >= 90) return varColor('--accent-red');
+            if (fill >= 60) return varColor('--accent-yellow');
+            return varColor('--accent-green');
+        }
+
+        function getBadgeClass(fill) {
+            if (fill >= 90) return 'badge-red';
+            if (fill >= 60) return 'badge-yellow';
+            return 'badge-green';
+        }
+
+        // Вспомогательная функция чтения CSS переменных
+        function varColor(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // Массив для хранения координат баков, требующих очистки (для симуляции трека TSP)
+        let routeCoordinates = [];
+
+        // Рендеринг маркеров на карте и наполнение боковой панели приоритетов
+        const priorityList = document.getElementById('priority-list');
+        
+        // Сортируем баки по убыванию наполненности (Прямой приоритет для алгоритма коммивояжера)
+        ecoBins.sort((a, b) => b.fill - a.fill);
+
+        let criticalCount = 0;
+
+        ecoBins.forEach(bin => {
+            if (bin.fill >= 90) {
+                criticalCount++;
+                routeCoordinates.push([bin.lat, bin.lng]);
+            }
+
+            // 1. Создание кастомного HTML-маркера с процентами
+            const markerColor = getColorByFill(bin.fill);
+            const customIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="custom-marker" style="background-color: ${markerColor}; width: 32px; height: 32px;">${bin.fill}%</div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            // Добавление на карту
+            const marker = L.marker([bin.lat, bin.lng], { icon: customIcon }).addTo(map);
+
+            // Красивый матовый попап при клике на маркер
+            const popupContent = `
+                <div class="popup-title">${bin.name}</div>
+                <div class="popup-row"><span class="popup-label">Тип сырья:</span><span class="popup-value">${bin.type}</span></div>
+                <div class="popup-row"><span class="popup-label">Заполнение:</span><span class="popup-value" style="color:${markerColor}; font-weight:700;">${bin.fill}%</span></div>
+                <div class="popup-row"><span class="popup-label">Телеметрия:</span><span class="popup-value">${bin.lastUpdate}</span></div>
+            `;
+            marker.bindPopup(popupContent);
+
+            // 2. Добавление элемента в боковую панель списка приоритетов
+            const binItem = document.createElement('div');
+            binItem.className = 'bin-item';
+            binItem.innerHTML = `
+                <div class="bin-info">
+                    <span class="bin-name">${bin.name}</span>
+                    <span class="bin-type">Тип: ${bin.type} • ${bin.lastUpdate}</span>
+                </div>
+                <span class="bin-badge ${getBadgeClass(bin.fill)}">${bin.fill}%</span>
+            `;
+            
+            // Плавный фокус на бак при клике в левом меню
+            binItem.addEventListener('click', () => {
+                map.setView([bin.lat, bin.lng], 16);
+                marker.openPopup();
+            });
+
+            priorityList.appendChild(binItem);
+        });
+
+        // Обновляем счетчик критических баков на панели
+        document.getElementById('critical-bins-count').innerText = criticalCount;
+
+        // Симуляция отрисовки TSP-маршрута логистики
+        let polyline = null;
+        function calculateRoute() {
+            if (polyline) {
+                map.removeLayer(polyline);
+                polyline = null;
+            }
+
+            // Строим замкнутый граф: Завод -> Все критические баки по порядку приоритета -> Назад на завод
+            const fullRoute = [[factoryLocation.lat, factoryLocation.lng], ...routeCoordinates, [factoryLocation.lat, factoryLocation.lng]];
+            
+            polyline = L.polyline(fullRoute, {
+                color: varColor('--accent-green'),
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 10', // Пунктирная футуристичная линия
+                lineJoin: 'round'
+            }).addTo(map);
+
+            // Плавное масштабирование карты, чтобы увидеть весь сгенерированный маршрут логистики
+            map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+            
+            alert("Математический алгоритм КМВ (TSP) успешно построил кратчайший трек для очистки баков >90%. Координаты отправлены водителю.");
+        }
+    </script>
+</body>
+</html>
